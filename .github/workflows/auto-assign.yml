@@ -1,19 +1,69 @@
-name: Auto Assign
+name: Auto Assign PR
+
 on:
-  issues:
-    types: [opened]
   pull_request:
     types: [opened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
-  run:
+  assign:
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
+
     steps:
-    - name: 'Auto-assign issue'
-      uses: pozil/auto-assign-issue@v1
-      with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          assignees: Lvzxc
-          numOfAssignee: 1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Assign next reviewer
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+
+            // Team members in rotation order
+            const members = [
+              'Lvzxc',
+              'JoanMaquinano',
+              'bnnpddnftw',
+              'crizpycrae-m',
+              'jess-christine'
+            ];
+
+            const stateFile = '.github/assignee-state.txt';
+
+            // Read whose turn it is
+            let index = Number(
+              fs.readFileSync(stateFile, 'utf8').trim()
+            );
+
+            // Assign the PR
+            const assignee = members[index];
+
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              assignees: [assignee]
+            });
+
+            console.log(`PR assigned to ${assignee}`);
+
+            // Move to the next member
+            index = (index + 1) % members.length;
+
+            fs.writeFileSync(
+              stateFile,
+              `${index}\n`
+            );
+
+      - name: Save rotation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .github/assignee-state.txt
+          git commit -m "chore: update PR assignment rotation" || exit 0
+          git push
