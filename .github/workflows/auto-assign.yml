@@ -8,6 +8,9 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  PR_REVIEWERS: ${{ vars.PR_REVIEWERS }}
+
 jobs:
   assign:
     runs-on: ubuntu-latest
@@ -16,30 +19,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Assign next reviewer
+      - name: Assign next team member
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
 
-            // Team members in rotation order
-            const members = [
-              'Lvzxc',
-              'JoanMaquinano',
-              'bnnpddnftw',
-              'crizpycrae-m',
-              'jess-christine'
-            ];
+            const members = process.env.PR_REVIEWERS
+              .split(',')
+              .map(member => member.trim());
 
             const stateFile = '.github/assignee-state.txt';
 
-            // Read whose turn it is
             let index = Number(
               fs.readFileSync(stateFile, 'utf8').trim()
             );
 
-            // Assign the PR
+            if (index < 0 || index >= members.length) {
+              index = 0;
+            }
+
             const assignee = members[index];
 
             await github.rest.issues.addAssignees({
@@ -49,14 +49,13 @@ jobs:
               assignees: [assignee]
             });
 
-            console.log(`PR assigned to ${assignee}`);
+            console.log(`Assigned PR to ${assignee}`);
 
-            // Move to the next member
-            index = (index + 1) % members.length;
+            const nextIndex = (index + 1) % members.length;
 
             fs.writeFileSync(
               stateFile,
-              `${index}\n`
+              `${nextIndex}\n`
             );
 
       - name: Save rotation
