@@ -1,3 +1,4 @@
+---
 name: Auto Assign PR
 
 on:
@@ -61,7 +62,8 @@ jobs:
       - name: Save rotation
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add .github/assignee-state.txt
           git commit -m "chore: update PR assignment rotation" || exit 0
